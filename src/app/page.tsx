@@ -17,7 +17,10 @@ const LoginPage = () => {
         />
         <button className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600">登入</button>
         <div className="mt-4">
-          <a href="/login" className="text-blue-500 text-sm">忘記密碼？</a>
+          <a href="/forgetpass" className="text-blue-500 text-sm">忘記密碼？</a>
+        </div>
+        <div className="mt-4">
+          <a href="/register" className="text-blue-500 text-sm">註冊</a>
         </div>
       </div>
     </div>
