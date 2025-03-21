@@ -148,6 +148,13 @@ const DashboardPage = () => {
                       >
                         {/* 群組名稱 */}
                         <h3 className="text-lg font-semibold flex-1 text-center">{group.name}</h3>
+                        {/* 進入群組按鈕 */}
+                        <button
+                          onClick={() => alert(`進入群組: ${group.name}`)} // 替換為實際的進入群組邏輯
+                          className="ml-4 bg-blue-500 text-white py-1 px-3 rounded-md hover:bg-blue-600"
+                        >
+                          群組聊天室
+                        </button>
                       </div>
                     ))
                   ) : (
