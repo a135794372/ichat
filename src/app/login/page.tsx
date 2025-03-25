@@ -11,6 +11,16 @@ type DecodedToken = {
   email: string;
   exp?: number; // 選填: Token 的過期時間
 };
+type GroupRequest = {
+  request_id: number;
+  group_id: number;
+  user_id: number;
+  status: string;
+  created_at: string;
+  group_name: string;
+  applicant_name: string;
+};
+
 type Group = {
   id: number;
   name: string;
@@ -25,7 +35,8 @@ const DashboardPage = () => {
   const [groupName, setGroupName] = useState<string>(""); // 群組名稱
   const [groupDescription, setGroupDescription] = useState<string>(""); // 群組描述
   const [myGroups, setMyGroups] = useState<Group[]>([]); // 用戶的群組列表
-  
+  const [groupRequests, setGroupRequests] = useState<GroupRequest[]>([]); // 儲存群組申請資料
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
@@ -34,12 +45,85 @@ const DashboardPage = () => {
       setEditedName(decoded.username); // 初始化編輯姓名
     }
   }, []);
-
+  const handleFetchGroupRequests = async () => {
+    if (!user?.id) {
+      console.error("userId 未定義");
+      return;
+    }
+  
+    console.log("傳遞的 userId:", user.id); // 調試用，檢查 userId 是否正確
+  
+    try {
+      const response = await fetch("/api/group-requests", {
+        method: "GET",
+        headers: {
+          "user-id": user.id.toString(), // 傳遞當前使用者 ID
+        },
+      });
+  
+      if (response.ok) {
+        const data = await response.json();
+        setGroupRequests(data); // 更新群組申請資料
+      } else {
+        console.error("獲取群組申請失敗");
+      }
+    } catch (error) {
+      console.error("伺服器錯誤", error);
+    }
+  };
   const handleLogout = () => {
     const confirmLogout = window.confirm("確定要登出嗎？");
     if (confirmLogout) {
       localStorage.removeItem("token"); // 清除 token
       router.push("/"); // 重定向到登入頁面
+    }
+  };
+  const handleJoinGroup = async () => {
+    try {
+      const response = await fetch("/api/join-group", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          groupName, // 群組名稱
+          userId: user?.id,    // 當前使用者 ID
+        }),
+      });
+  
+      const data = await response.json();
+  
+      if (response.ok) {
+        alert(data.message); // 顯示成功訊息
+      } else {
+        alert(data.message); // 顯示錯誤訊息
+      }
+    } catch (error) {
+      console.error("加入群組請求失敗", error);
+      alert("伺服器錯誤，請稍後再試");
+    }
+  };
+  const handleUpdateRequestStatus = async (requestId: number, status: "approved" | "rejected") => {
+    try {
+      const response = await fetch("/api/update-request-status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requestId,
+          status,
+        }),
+      });
+  
+      if (response.ok) {
+        alert("操作成功");
+        handleFetchGroupRequests(); // 重新獲取群組申請資料
+      } else {
+        console.error("更新申請狀態失敗");
+      }
+    } catch (error) {
+      console.error("伺服器錯誤", error);
     }
   };
   const fetchMyGroups = useCallback(async () => {
@@ -69,7 +153,7 @@ const DashboardPage = () => {
       fetchMyGroups();
     }
   }, [activeTab, fetchMyGroups]); // 添加 fetchMyGroups 作為依賴項
-
+  
   const handleSaveName = async () => {
     if (user) {
       try {
@@ -134,106 +218,201 @@ const DashboardPage = () => {
             <p className="text-gray-600">這裡是聊天室的內容。</p>
           </div>
         );
-          case "Mygroup":
-            return (
-              <div className="bg-white p-8 rounded-2xl shadow-lg w-96 text-center">
-                <h2 className="text-xl font-semibold mb-4">我的群組</h2>
-                {/* 群組列表容器 */}
-                <div className="text-left max-h-64 overflow-y-auto">
-                  {myGroups.length > 0 ? (
-                    myGroups.map((group) => (
-                      <div
-                        key={group.id}
-                        className="flex justify-between items-center mb-4 pb-2"
-                      >
-                        {/* 群組名稱 */}
-                        <h3 className="text-lg font-semibold flex-1 text-center">{group.name}</h3>
-                        {/* 進入群組按鈕 */}
-                        <button
-                          onClick={() => alert(`進入群組: ${group.name}`)} // 替換為實際的進入群組邏輯
-                          className="ml-4 bg-blue-500 text-white py-1 px-3 rounded-md hover:bg-blue-600"
-                        >
-                          群組聊天室
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-gray-600 text-center">尚未創建任何群組。</p>
-                  )}
-                </div>
-              </div>
-            );
-        case "Joingroup":
+      case "Mygroup":
+        return (
+          <div className="bg-white p-8 rounded-2xl shadow-lg w-96 text-center">
+            <h2 className="text-xl font-semibold mb-4">我的群組</h2>
+            {/* 群組列表容器 */}
+            <div className="text-left max-h-[192px] overflow-y-auto border border-gray-300 rounded-lg p-4">
+              {myGroups.length > 0 ? (
+                myGroups.map((group) => (
+                  <div
+                    key={group.id}
+                    className="flex justify-between items-center mb-4 pb-2"
+                  >
+                    {/* 群組名稱 */}
+                    <h3 className="text-lg font-semibold flex-1 text-center">{group.name}</h3>
+                    {/* 進入群組按鈕 */}
+                    <button
+                      onClick={() =>
+                        router.push(
+                          `/chat/${group.id}?name=${encodeURIComponent(group.name)}&id=${group.id}&userId=${user?.id}`
+                        )
+                      }
+                      className="ml-4 bg-blue-500 text-white py-1 px-3 rounded-md hover:bg-blue-600"
+                    >
+                      群組聊天室
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-600 text-center">尚未創建任何群組。</p>
+              )}
+            </div>
+          </div>
+        );
+      case "Joingroup":
         return (
           <div className="bg-white p-8 rounded-2xl shadow-lg w-96 text-center">
             <h2 className="text-xl font-semibold mb-4">加入群組</h2>
-            <p className="text-gray-600">想加入的群組號碼</p>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!groupName) {
+                  alert("請輸入群組名稱");
+                  return;
+                }
+
+                try {
+                  const response = await fetch("/api/join-group", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      groupName,
+                      userId: user?.id, // 傳遞用戶 ID
+                    }),
+                  });
+
+                  if (response.ok) {
+                    alert("已請求加入群組！");
+                    setGroupName(""); // 清空輸入框
+                  } else {
+                    const errorData = await response.json();
+                    alert(errorData.message || "加入群組失敗");
+                  }
+                } catch (error) {
+                  console.error("加入群組請求失敗", error);
+                  alert("伺服器錯誤，請稍後再試");
+                }
+              }}
+            >
+              <input
+                type="text"
+                placeholder="群組名稱"
+                className="w-full p-2 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault(); // 防止預設行為
+                    e.currentTarget.form?.requestSubmit(); // 提交表單
+                  }
+                }}
+              />
+              <button
+  onClick={handleJoinGroup}
+  className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600"
+>
+  加入群組
+</button>
+            </form>
           </div>
         );
-        case "Addgroup":
+      case "Addgroup":
+        return (
+          <div className="bg-white p-8 rounded-2xl shadow-lg w-96 text-center">
+            <h2 className="text-xl font-semibold mb-4">新增群組</h2>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!groupName || !groupDescription) {
+                  alert("請填寫所有欄位");
+                  return;
+                }
+                if (groupDescription.length > 100) {
+                  alert("描述不能超過100個字元");
+                  return;
+                }
+                try {
+                  const response = await fetch("/api/add-group", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      name: groupName,
+                      description: groupDescription,
+                      createdBy: user?.id,
+                    }),
+                  });
+
+                  if (response.ok) {
+                    const data = await response.json();
+                    alert(`群組新增成功，群組 ID: ${data.groupId}`);
+                    setGroupName("");
+                    setGroupDescription("");
+                  } else {
+                    const errorData = await response.json();
+                    alert(errorData.message || "新增群組失敗");
+                  }
+                } catch (error) {
+                  console.error("新增群組請求失敗", error);
+                  alert("伺服器錯誤，請稍後再試");
+                }
+              }}
+            >
+              <input
+                type="text"
+                placeholder="群組名稱"
+                className="w-full p-2 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+              />
+              <textarea
+                placeholder="群組描述 (最多100字)"
+                className="w-full p-2 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={groupDescription}
+                onChange={(e) => setGroupDescription(e.target.value)}
+                maxLength={100}
+              />
+              <button
+                type="submit"
+                className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600"
+              >
+                新增群組
+              </button>
+            </form>
+          </div>
+        );
+        case "GroupRequests":
   return (
     <div className="bg-white p-8 rounded-2xl shadow-lg w-96 text-center">
-      <h2 className="text-xl font-semibold mb-4">新增群組</h2>
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!groupName || !groupDescription) {
-            alert("請填寫所有欄位");
-            return;
-          }
-          if (groupDescription.length > 100) {
-            alert("描述不能超過100個字元");
-            return;
-          }
-          try {
-            const response = await fetch("/api/add-group", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                name: groupName,
-                description: groupDescription,
-                createdBy: user?.id,
-              }),
-            });
-
-            if (response.ok) {
-              const data = await response.json();
-              alert(`群組新增成功，群組 ID: ${data.groupId}`);
-              setGroupName("");
-              setGroupDescription("");
-            } else {
-              const errorData = await response.json();
-              alert(errorData.message || "新增群組失敗");
-            }
-          } catch (error) {
-            console.error("新增群組請求失敗", error);
-            alert("伺服器錯誤，請稍後再試");
-          }
-        }}
-      >
-        <input
-          type="text"
-          placeholder="群組名稱"
-          className="w-full p-2 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={groupName}
-          onChange={(e) => setGroupName(e.target.value)}
-        />
-        <textarea
-          placeholder="群組描述 (最多100字)"
-          className="w-full p-2 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={groupDescription}
-          onChange={(e) => setGroupDescription(e.target.value)}
-          maxLength={100}
-        />
-        <button
-          type="submit"
-          className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600"
-        >
-          新增群組
-        </button>
-      </form>
+      <h2 className="text-xl font-semibold mb-4">群組申請</h2>
+      <div className="text-left max-h-[192px] overflow-y-auto border border-gray-300 rounded-lg p-4">
+        {groupRequests.length > 0 ? (
+          groupRequests.map((request) => (
+            <div key={request.request_id} className="mb-4">
+              <p>
+                <strong>群組名稱:</strong> {request.group_name}
+              </p>
+              <p>
+                <strong>申請者:</strong> {request.applicant_name}
+              </p>
+              <p>
+                <strong>申請時間:</strong> {new Date(request.created_at).toLocaleString()}
+              </p>
+              <div className="flex justify-between mt-2">
+                <button
+                  onClick={() => handleUpdateRequestStatus(request.request_id, "approved")}
+                  className="bg-green-500 text-white py-1 px-3 rounded-md hover:bg-green-600"
+                >
+                  同意
+                </button>
+                <button
+                  onClick={() => handleUpdateRequestStatus(request.request_id, "rejected")}
+                  className="bg-red-500 text-white py-1 px-3 rounded-md hover:bg-red-600"
+                >
+                  拒絕
+                </button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="text-gray-600 text-center">目前沒有任何申請。</p>
+        )}
+      </div>
     </div>
   );
       default:
@@ -253,46 +432,46 @@ const DashboardPage = () => {
         <h3 className="text-lg font-semibold mb-4">功能選單</h3>
         <div className="space-y-4">
           <button
-            className={`w-full py-2 px-4 rounded-lg ${
-              activeTab === "profile" ? "bg-blue-600 text-white" : "bg-blue-500 text-white hover:bg-blue-600"
-            }`}
+            className={`w-full py-2 px-4 rounded-lg ${activeTab === "profile" ? "bg-blue-600 text-white" : "bg-blue-500 text-white hover:bg-blue-600"
+              }`}
             onClick={() => setActiveTab("profile")}
           >
             個人資料
           </button>
           <button
-            className={`w-full py-2 px-4 rounded-lg ${
-              activeTab === "chat" ? "bg-blue-600 text-white" : "bg-blue-500 text-white hover:bg-blue-600"
-            }`}
-            onClick={() => setActiveTab("chat")}
-          >
-            聊天室
-          </button>
-          <button
-            className={`w-full py-2 px-4 rounded-lg ${
-              activeTab === "Mygroup" ? "bg-blue-600 text-white" : "bg-blue-500 text-white hover:bg-blue-600"
-            }`}
+            className={`w-full py-2 px-4 rounded-lg ${activeTab === "Mygroup" ? "bg-blue-600 text-white" : "bg-blue-500 text-white hover:bg-blue-600"
+              }`}
             onClick={() => setActiveTab("Mygroup")}
           >
             我的群組
           </button>
           <button
-            className={`w-full py-2 px-4 rounded-lg ${
-              activeTab === "Joingroup" ? "bg-blue-600 text-white" : "bg-blue-500 text-white hover:bg-blue-600"
-            }`}
+            className={`w-full py-2 px-4 rounded-lg ${activeTab === "Joingroup" ? "bg-blue-600 text-white" : "bg-blue-500 text-white hover:bg-blue-600"
+              }`}
             onClick={() => setActiveTab("Joingroup")}
           >
             加入群組
           </button>
           <button
-            className={`w-full py-2 px-4 rounded-lg ${
-              activeTab === "Addgroup" ? "bg-blue-600 text-white" : "bg-blue-500 text-white hover:bg-blue-600"
-            }`}
+            className={`w-full py-2 px-4 rounded-lg ${activeTab === "Addgroup" ? "bg-blue-600 text-white" : "bg-blue-500 text-white hover:bg-blue-600"
+              }`}
             onClick={() => setActiveTab("Addgroup")}
           >
             新增群組
           </button>
+          <button
+  className={`w-full py-2 px-4 rounded-lg ${
+    activeTab === "GroupRequests" ? "bg-blue-600 text-white" : "bg-blue-500 text-white hover:bg-blue-600"
+  }`}
+  onClick={() => {
+    setActiveTab("GroupRequests");
+    handleFetchGroupRequests(); // 獲取群組申請資料
+  }}
+>
+  群組申請
+</button>
         </div>
+        
         <button
           onClick={handleLogout}
           className="w-full mt-8 py-2 px-4 bg-red-500 text-white rounded-lg hover:bg-red-600"

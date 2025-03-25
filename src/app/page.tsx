@@ -25,7 +25,6 @@ const LoginPage = () => {
       }
 
       const data = await res.json();
-      alert(data.message);
 
       // 儲存 Token 到 localStorage
       localStorage.setItem("token", data.token);
@@ -55,6 +54,11 @@ const LoginPage = () => {
           className="w-full p-2 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleLogin();
+            }
+          }}
         />
         <button
           className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600"

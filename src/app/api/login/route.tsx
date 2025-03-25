@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       { expiresIn: "1h" }
     );
 
-    return NextResponse.json({ message: "登入成功", token }, { status: 200 });
+    return NextResponse.json({ token }, { status: 200 });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ message: "伺服器錯誤" }, { status: 500 });

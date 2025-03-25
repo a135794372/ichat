@@ -9,9 +9,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ message: "缺少用戶 ID" }, { status: 400 });
     }
 
-    // 查詢用戶創建的群組
+    // 查詢用戶所屬的群組
     const [groups] = await db.execute(
-      "SELECT id, name, description FROM `groups` WHERE created_by = ?",
+      `
+      SELECT g.id, g.name, g.description
+      FROM group_members gm
+      JOIN \`groups\` g ON gm.group_id = g.id
+      WHERE gm.user_id = ?
+      `,
       [userId]
     );
 
