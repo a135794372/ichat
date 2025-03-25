@@ -22,6 +22,16 @@ export async function POST(req: Request) {
 
     const groupId = groupResult[0].id;
 
+    // 檢查使用者是否已經在群組內
+    const [memberCheck] = await db.execute<mysql.RowDataPacket[]>(
+      "SELECT id FROM group_members WHERE group_id = ? AND user_id = ?",
+      [groupId, userId]
+    );
+
+    if (memberCheck.length > 0) {
+      return NextResponse.json({ message: "使用者已經在群組內" }, { status: 400 });
+    }
+
     // 檢查是否已經有加入群組的請求
     const [requestCheck] = await db.execute<mysql.RowDataPacket[]>(
       "SELECT id FROM group_requests WHERE group_id = ? AND user_id = ? AND status = 'pending'",

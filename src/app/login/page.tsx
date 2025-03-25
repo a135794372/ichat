@@ -78,31 +78,6 @@ const DashboardPage = () => {
       router.push("/"); // 重定向到登入頁面
     }
   };
-  const handleJoinGroup = async () => {
-    try {
-      const response = await fetch("/api/join-group", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          groupName, // 群組名稱
-          userId: user?.id,    // 當前使用者 ID
-        }),
-      });
-  
-      const data = await response.json();
-  
-      if (response.ok) {
-        alert(data.message); // 顯示成功訊息
-      } else {
-        alert(data.message); // 顯示錯誤訊息
-      }
-    } catch (error) {
-      console.error("加入群組請求失敗", error);
-      alert("伺服器錯誤，請稍後再試");
-    }
-  };
   const handleUpdateRequestStatus = async (requestId: number, status: "approved" | "rejected") => {
     try {
       const response = await fetch("/api/update-request-status", {
@@ -118,12 +93,18 @@ const DashboardPage = () => {
   
       if (response.ok) {
         alert("操作成功");
-        handleFetchGroupRequests(); // 重新獲取群組申請資料
+  
+        // 從 groupRequests 狀態中移除該申請
+        setGroupRequests((prevRequests) =>
+          prevRequests.filter((request) => request.request_id !== requestId)
+        );
       } else {
-        console.error("更新申請狀態失敗");
+        const errorData = await response.json();
+        alert(errorData.message || "操作失敗");
       }
     } catch (error) {
       console.error("伺服器錯誤", error);
+      alert("伺服器錯誤，請稍後再試");
     }
   };
   const fetchMyGroups = useCallback(async () => {
@@ -257,57 +238,50 @@ const DashboardPage = () => {
             <h2 className="text-xl font-semibold mb-4">加入群組</h2>
             <form
               onSubmit={async (e) => {
-                e.preventDefault();
-                if (!groupName) {
-                  alert("請輸入群組名稱");
-                  return;
-                }
+              e.preventDefault(); // 防止表單的預設提交行為
+              if (!groupName) {
+                alert("請輸入群組名稱");
+                return;
+              }
+    try {
+      const response = await fetch("/api/join-group", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          groupName,
+          userId: user?.id, // 傳遞用戶 ID
+        }),
+      });
 
-                try {
-                  const response = await fetch("/api/join-group", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                      groupName,
-                      userId: user?.id, // 傳遞用戶 ID
-                    }),
-                  });
-
-                  if (response.ok) {
-                    alert("已請求加入群組！");
-                    setGroupName(""); // 清空輸入框
-                  } else {
-                    const errorData = await response.json();
-                    alert(errorData.message || "加入群組失敗");
-                  }
-                } catch (error) {
-                  console.error("加入群組請求失敗", error);
-                  alert("伺服器錯誤，請稍後再試");
-                }
-              }}
-            >
-              <input
-                type="text"
-                placeholder="群組名稱"
-                className="w-full p-2 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault(); // 防止預設行為
-                    e.currentTarget.form?.requestSubmit(); // 提交表單
-                  }
-                }}
-              />
-              <button
-  onClick={handleJoinGroup}
-  className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600"
+      if (response.ok) {
+        alert("已請求加入群組！");
+        setGroupName(""); // 清空輸入框
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || "加入群組失敗");
+      }
+    } catch (error) {
+      console.error("加入群組請求失敗", error);
+      alert("伺服器錯誤，請稍後再試");
+    }
+  }}
 >
-  加入群組
-</button>
-            </form>
+  <input
+    type="text"
+    placeholder="群組名稱"
+    className="w-full p-2 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    value={groupName}
+    onChange={(e) => setGroupName(e.target.value)}
+  />
+  <button
+    type="submit" // 使用 type="submit"，讓按鈕只觸發表單的 onSubmit
+    className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600"
+  >
+    申請
+  </button>
+</form>
           </div>
         );
       case "Addgroup":
